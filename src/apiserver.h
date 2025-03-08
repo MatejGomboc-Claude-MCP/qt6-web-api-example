@@ -25,6 +25,9 @@ public:
     // Listen with improved security (default to localhost only)
     bool listen(int port, const QHostAddress &address = QHostAddress::LocalHost);
     
+    // Listen on HTTP port for HTTPS redirects (when TLS is enabled)
+    bool listenHttpRedirect(int httpPort, int httpsPort);
+    
     // Enable TLS/HTTPS
     bool enableTls(const QString &certPath, const QString &keyPath, const QString &keyPassphrase = QString());
     
@@ -42,6 +45,7 @@ public:
 
 private:
     QHttpServer *m_server;
+    QHttpServer *m_redirectServer;  // Server for HTTP redirects
     bool m_corsEnabled;
     QStringList m_corsAllowedOrigins;
     int m_rateLimit;
@@ -50,6 +54,7 @@ private:
     QString m_problemBaseUrl;
     bool m_tlsEnabled;
     ConfigManager *m_config;
+    int m_httpsPort;  // HTTPS port for redirects
     
     void setupRoutes();
     void setupErrorHandler();
@@ -60,6 +65,8 @@ private:
     bool isRateLimited(const QString &clientIp);
     QHttpServerResponse createRateLimitedResponse(const QString &clientIp);
     void resetRateLimits();
+    void setupHttpsRedirect(int httpPort, int httpsPort);
+    QString getServerHostname() const;
 };
 
 #endif // APISERVER_H
