@@ -9,10 +9,10 @@ A simple Qt6 C++ web API that returns 'Hello World' and supports RFC 7807 Proble
 - Full implementation of RFC 7807 Problem Details for standardized error reporting
 - JSON configuration file for easy deployment and customization
 - Comprehensive security features:
+  - OWASP recommended security headers
   - Rate limiting to prevent abuse
   - TLS/HTTPS support
   - CORS support for web clients
-  - Security headers (CSP, X-Frame-Options, etc.)
   - Exception safety with proper error handling
   - Configurable problem detail format
   - Local-only binding by default (for improved security)
@@ -77,8 +77,16 @@ The default `config.json` file is organized into logical sections:
       "contentTypeOptions": "nosniff",
       "frameOptions": "DENY",
       "contentSecurityPolicy": "default-src 'self'",
+      "permissionsPolicy": "geolocation=(), camera=(), microphone=()",
+      "referrerPolicy": "strict-origin-when-cross-origin",
+      "xssProtection": "1; mode=block",
       "hstsMaxAge": 31536000,
-      "hstsIncludeSubdomains": true
+      "hstsIncludeSubdomains": true,
+      "cacheControl": "no-store, max-age=0",
+      "clearSiteData": "",
+      "crossOriginEmbedderPolicy": "require-corp",
+      "crossOriginOpenerPolicy": "same-origin",
+      "crossOriginResourcePolicy": "same-origin"
     }
   },
   "problemDetails": {
@@ -158,6 +166,59 @@ All error responses use the `application/problem+json` content type as specified
 
 ## Security Features
 
+### OWASP Recommended Security Headers
+
+The API implements recommended security headers from the [OWASP HTTP Headers Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html), including:
+
+- **Content-Type Options**: Prevents MIME-type sniffing
+  ```
+  X-Content-Type-Options: nosniff
+  ```
+
+- **Frame Options**: Prevents clickjacking attacks
+  ```
+  X-Frame-Options: DENY
+  ```
+
+- **Content Security Policy**: Limits sources of content
+  ```
+  Content-Security-Policy: default-src 'self'
+  ```
+
+- **Permissions Policy**: Controls browser features
+  ```
+  Permissions-Policy: geolocation=(), camera=(), microphone=()
+  ```
+
+- **Referrer Policy**: Controls information in the Referer header
+  ```
+  Referrer-Policy: strict-origin-when-cross-origin
+  ```
+
+- **XSS Protection**: Additional XSS mitigation for older browsers
+  ```
+  X-XSS-Protection: 1; mode=block
+  ```
+
+- **HSTS**: Forces HTTPS connections (when TLS is enabled)
+  ```
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  ```
+
+- **Cache Control**: Prevents caching of sensitive information
+  ```
+  Cache-Control: no-store, max-age=0
+  ```
+
+- **Cross-Origin Policies**: Restricts cross-origin interactions
+  ```
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  ```
+
+All security headers are configurable through the JSON configuration file.
+
 ### Rate Limiting
 
 The API includes IP-based rate limiting to prevent abuse. By default, each client IP is limited to 100 requests per minute. You can configure this in the JSON configuration:
@@ -197,23 +258,33 @@ Cross-Origin Resource Sharing (CORS) headers can be configured:
 }
 ```
 
-### Security Headers
-
-The API automatically includes security headers for all responses, which can be customized:
-
-```json
-"headers": {
-  "contentTypeOptions": "nosniff",
-  "frameOptions": "DENY",
-  "contentSecurityPolicy": "default-src 'self'",
-  "hstsMaxAge": 31536000,
-  "hstsIncludeSubdomains": true
-}
-```
-
 ### Exception Handling
 
-All routes include comprehensive exception handling to ensure that unexpected errors are properly caught and returned as ProblemDetail responses rather than crashing the server.
+All routes include comprehensive exception handling to ensure that unexpected errors are properly caught and returned as ProblemDetail responses rather than crashing the server. This enhances both security and reliability by providing consistent error handling across the entire API.
+
+## Performance Considerations
+
+The OWASP security headers have been carefully selected to provide strong security while minimizing performance impact:
+
+- Headers are configured once at startup and applied consistently
+- The ConfigManager uses efficient string lookups with sensible defaults
+- Memory usage is minimized by reusing configuration objects
+- Header application is performed in the response pipeline without blocking
+
+For high-traffic deployments, consider:
+
+1. Increasing the `workers` setting in the configuration
+2. Adjusting rate limits for your specific use case
+3. Using a reverse proxy like Nginx for TLS termination and additional caching
+
+## Extending the API
+
+This project provides a solid foundation that you can extend:
+
+1. Add new routes in `apiserver.cpp`
+2. Add authentication by implementing a middleware in the request pipeline
+3. Add database integration by connecting to your preferred database
+4. Implement logging by extending the configuration and adding a logging facility
 
 ## License
 
