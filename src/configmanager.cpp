@@ -64,6 +64,15 @@ bool ConfigManager::processCommandLine()
                                    "Address to bind to", "address");
     parser.addOption(addressOption);
     
+    // HTTP to HTTPS redirect options
+    QCommandLineOption httpRedirectOption(QStringList() << "http-redirect",
+                                        "Enable HTTP to HTTPS redirect", "enable", "false");
+    parser.addOption(httpRedirectOption);
+    
+    QCommandLineOption httpPortOption(QStringList() << "http-port",
+                                    "HTTP port for redirects", "port", "80");
+    parser.addOption(httpPortOption);
+    
     // Rate limiting options
     QCommandLineOption rateLimitOption(QStringList() << "rate-limit",
                                      "Enable rate limiting", "enable", "true");
@@ -119,6 +128,22 @@ bool ConfigManager::processCommandLine()
     if (parser.isSet(addressOption)) {
         serverObj["address"] = parser.value(addressOption);
     }
+    
+    // HTTP to HTTPS redirect overrides
+    if (parser.isSet(httpRedirectOption) || parser.isSet(httpPortOption)) {
+        QJsonObject httpRedirectObj = serverObj["httpRedirect"].toObject();
+        
+        if (parser.isSet(httpRedirectOption)) {
+            httpRedirectObj["enabled"] = (parser.value(httpRedirectOption).toLower() == "true");
+        }
+        
+        if (parser.isSet(httpPortOption)) {
+            httpRedirectObj["httpPort"] = parser.value(httpPortOption).toInt();
+        }
+        
+        serverObj["httpRedirect"] = httpRedirectObj;
+    }
+    
     m_config["server"] = serverObj;
     
     // Rate limiting overrides
@@ -212,6 +237,16 @@ QHostAddress ConfigManager::getAddress() const
 int ConfigManager::getWorkers() const
 {
     return getInt({"server", "workers"}, 4);
+}
+
+bool ConfigManager::isHttpRedirectEnabled() const
+{
+    return getBool({"server", "httpRedirect", "enabled"}, false);
+}
+
+int ConfigManager::getHttpPort() const
+{
+    return getInt({"server", "httpRedirect", "httpPort"}, 80);
 }
 
 bool ConfigManager::isRateLimitEnabled() const
@@ -381,6 +416,11 @@ void ConfigManager::setDefaults()
     serverObj["port"] = 8080;
     serverObj["address"] = "localhost";
     serverObj["workers"] = 4;
+    
+    QJsonObject httpRedirectObj;
+    httpRedirectObj["enabled"] = false;
+    httpRedirectObj["httpPort"] = 80;
+    serverObj["httpRedirect"] = httpRedirectObj;
     
     QJsonObject rateLimitObj;
     rateLimitObj["enabled"] = true;
