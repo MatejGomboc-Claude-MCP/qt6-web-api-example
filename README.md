@@ -7,6 +7,7 @@ A simple Qt6 C++ web API that returns 'Hello World' and supports RFC 7807 Proble
 - Simple HTTP API built with Qt6's HttpServer module
 - Returns "Hello World" on the root endpoint
 - Full implementation of RFC 7807 Problem Details for standardized error reporting
+- JSON configuration file for easy deployment and customization
 - Comprehensive security features:
   - Rate limiting to prevent abuse
   - TLS/HTTPS support
@@ -38,35 +39,96 @@ cmake ..
 make
 ```
 
+## Configuration
+
+The API can be configured using a JSON configuration file (`config.json`) or command-line arguments. Command-line arguments take precedence over the configuration file.
+
+### JSON Configuration
+
+The default `config.json` file is organized into logical sections:
+
+```json
+{
+  "server": {
+    "port": 8080,
+    "address": "localhost",
+    "workers": 4
+  },
+  "security": {
+    "rateLimit": {
+      "enabled": true,
+      "maxRequestsPerMinute": 100,
+      "ipWhitelist": ["127.0.0.1", "::1"]
+    },
+    "cors": {
+      "enabled": false,
+      "allowedOrigins": ["*"],
+      "allowedMethods": ["GET", "POST", "OPTIONS"],
+      "allowedHeaders": ["Content-Type", "Authorization"],
+      "maxAge": 86400
+    },
+    "tls": {
+      "enabled": false,
+      "certificatePath": "",
+      "keyPath": "",
+      "passphrase": ""
+    },
+    "headers": {
+      "contentTypeOptions": "nosniff",
+      "frameOptions": "DENY",
+      "contentSecurityPolicy": "default-src 'self'",
+      "hstsMaxAge": 31536000,
+      "hstsIncludeSubdomains": true
+    }
+  },
+  "problemDetails": {
+    "baseUrl": "https://problemdetails.example.com/problems",
+    "includeDebugInfo": false,
+    "contactEmail": ""
+  },
+  "logging": {
+    "level": "info",
+    "file": "",
+    "console": true,
+    "includeTimestamp": true
+  }
+}
+```
+
+### Using a Custom Config File
+
+You can specify a custom configuration file:
+
+```bash
+./qt6-web-api-example --config /path/to/custom-config.json
+```
+
+### Command-Line Overrides
+
+Command-line arguments can override configuration file settings:
+
+```bash
+# Override the port
+./qt6-web-api-example --port 3000
+
+# Enable CORS
+./qt6-web-api-example --cors true
+
+# Set rate limiting
+./qt6-web-api-example --max-requests 60
+
+# Enable TLS/HTTPS
+./qt6-web-api-example --tls true --cert /path/to/cert.pem --key /path/to/key.pem
+```
+
 ## Running the Server
 
 ```bash
-# Run with default settings (port 8080, localhost only)
+# Run with default configuration
 ./qt6-web-api-example
 
-# Run on a specific port
-./qt6-web-api-example --port 3000
-
-# Run on all network interfaces (public access)
-./qt6-web-api-example --address 0.0.0.0
-
-# Enable CORS support
-./qt6-web-api-example --cors
-
-# Enable CORS with specific origins
-./qt6-web-api-example --cors --cors-origins="https://example.com,https://app.example.com"
-
-# Set rate limiting (requests per minute per client IP)
-./qt6-web-api-example --rate-limit 60
-
-# Disable rate limiting
-./qt6-web-api-example --rate-limit 0
-
-# Enable TLS/HTTPS
-./qt6-web-api-example --tls --cert=/path/to/cert.pem --key=/path/to/key.pem
-
-# Custom base URL for problem details
-./qt6-web-api-example --problem-base-url="https://api.myapp.com/problems"
+# Run with custom configuration file
+./qt6-web-api-example --config /path/to/config.json
 
 # Get help on all options
 ./qt6-web-api-example --help
@@ -98,41 +160,56 @@ All error responses use the `application/problem+json` content type as specified
 
 ### Rate Limiting
 
-The API includes IP-based rate limiting to prevent abuse. By default, each client IP is limited to 100 requests per minute. You can configure this with the `--rate-limit` option.
+The API includes IP-based rate limiting to prevent abuse. By default, each client IP is limited to 100 requests per minute. You can configure this in the JSON configuration:
 
-When rate limiting is triggered, the API returns a proper 429 Too Many Requests response with a ProblemDetail object that includes:
-- A `Retry-After` header
-- A `retryAfter` extension in the problem detail
+```json
+"rateLimit": {
+  "enabled": true,
+  "maxRequestsPerMinute": 100,
+  "ipWhitelist": ["127.0.0.1", "::1"]
+}
+```
 
 ### TLS/HTTPS Support
 
-For production use, enable TLS with your own certificates:
+For production use, enable TLS in the configuration:
 
-```bash
-./qt6-web-api-example --tls --cert=/path/to/cert.pem --key=/path/to/key.pem
+```json
+"tls": {
+  "enabled": true,
+  "certificatePath": "/path/to/cert.pem",
+  "keyPath": "/path/to/key.pem",
+  "passphrase": "optional-passphrase"
+}
 ```
 
 ### CORS Support
 
-Cross-Origin Resource Sharing (CORS) headers can be enabled for web clients:
+Cross-Origin Resource Sharing (CORS) headers can be configured:
 
-```bash
-./qt6-web-api-example --cors
-```
-
-By default, this allows any origin (`*`). For production, specify the allowed origins:
-
-```bash
-./qt6-web-api-example --cors --cors-origins="https://example.com,https://app.example.com"
+```json
+"cors": {
+  "enabled": true,
+  "allowedOrigins": ["https://example.com", "https://app.example.com"],
+  "allowedMethods": ["GET", "POST", "OPTIONS"],
+  "allowedHeaders": ["Content-Type", "Authorization"],
+  "maxAge": 86400
+}
 ```
 
 ### Security Headers
 
-The API automatically includes security headers for all responses:
-- `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
-- `Content-Security-Policy: default-src 'self'`
-- `Strict-Transport-Security: max-age=31536000; includeSubDomains` (when TLS is enabled)
+The API automatically includes security headers for all responses, which can be customized:
+
+```json
+"headers": {
+  "contentTypeOptions": "nosniff",
+  "frameOptions": "DENY",
+  "contentSecurityPolicy": "default-src 'self'",
+  "hstsMaxAge": 31536000,
+  "hstsIncludeSubdomains": true
+}
+```
 
 ### Exception Handling
 
