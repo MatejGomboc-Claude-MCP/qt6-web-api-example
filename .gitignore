@@ -1,0 +1,55 @@
+# Qt-specific
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+Makefile*
+*build-*
+*.qm
+*.prl
+
+# Qt Creator
+*.autosave
+
+# QtCreator CMake
+CMakeLists.txt.user*
+
+# QtCreator local machine specific files for imported projects
+*creator.user*
+
+# C++ objects and libs
+*.slo
+*.lo
+*.o
+*.a
+*.la
+*.lai
+*.so
+*.so.*
+*.dll
+*.dylib
+
+# Debug and Release directories (created under Windows)
+Debug/
+Release/
+
+# Build directories
+build*/
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.vcxproj.filters
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
