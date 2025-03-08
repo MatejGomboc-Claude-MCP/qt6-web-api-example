@@ -12,11 +12,14 @@ A simple Qt6 C++ web API that returns 'Hello World' and supports RFC 7807 Proble
   - OWASP recommended security headers
   - Automatic HTTP to HTTPS redirection
   - Rate limiting to prevent abuse
-  - TLS/HTTPS support
+  - TLS/HTTPS support with Let's Encrypt integration
   - CORS support for web clients
   - Exception safety with proper error handling
   - Configurable problem detail format
   - Local-only binding by default (for improved security)
+- Deployment and maintenance utilities:
+  - Let's Encrypt certificate renewal automation
+  - Systemd service configuration
 
 ## Requirements
 
@@ -258,17 +261,39 @@ The API includes IP-based rate limiting to prevent abuse. By default, each clien
 }
 ```
 
-### TLS/HTTPS Support
+### TLS/HTTPS Support with Let's Encrypt
 
 For production use, enable TLS in the configuration:
 
 ```json
 "tls": {
   "enabled": true,
-  "certificatePath": "/path/to/cert.pem",
-  "keyPath": "/path/to/key.pem",
-  "passphrase": "optional-passphrase"
+  "certificatePath": "/etc/letsencrypt/live/example.com/fullchain.pem",
+  "keyPath": "/etc/letsencrypt/live/example.com/privkey.pem",
+  "passphrase": ""
 }
+```
+
+#### Let's Encrypt Certificate Automation
+
+This project includes scripts for automating Let's Encrypt certificate issuance and renewal on Debian-based Linux systems. The scripts are located in the `scripts/` directory:
+
+- `letsencrypt-renewal.sh`: Automates the renewal of Let's Encrypt certificates and updates the application configuration
+- `qt6-web-api.service`: Example systemd service file for running the API as a service
+
+For detailed setup instructions, see the [Scripts README](scripts/README.md).
+
+Quick setup:
+
+```bash
+# Initial certificate acquisition
+sudo certbot certonly --standalone -d example.com -d www.example.com
+
+# Set up automated renewal
+sudo cp scripts/letsencrypt-renewal.sh /usr/local/bin/
+sudo chmod +x /usr/local/bin/letsencrypt-renewal.sh
+sudo crontab -e
+# Add: 0 0,12 * * * /usr/local/bin/letsencrypt-renewal.sh >> /var/log/letsencrypt-renewal.log 2>&1
 ```
 
 ### CORS Support
@@ -288,6 +313,30 @@ Cross-Origin Resource Sharing (CORS) headers can be configured:
 ### Exception Handling
 
 All routes include comprehensive exception handling to ensure that unexpected errors are properly caught and returned as ProblemDetail responses rather than crashing the server. This enhances both security and reliability by providing consistent error handling across the entire API.
+
+## Production Deployment
+
+For production deployments, we recommend:
+
+1. Run as a systemd service (see `scripts/qt6-web-api.service`)
+2. Enable TLS with Let's Encrypt certificates
+3. Set up the automated certificate renewal script (see `scripts/letsencrypt-renewal.sh`)
+4. Configure HTTP to HTTPS redirection
+5. Use a non-root user for running the service
+
+Setup example:
+
+```bash
+# Install in production location
+sudo mkdir -p /opt/qt6-web-api-example
+sudo cp -r build/qt6-web-api-example config.json /opt/qt6-web-api-example/
+
+# Set up systemd service
+sudo cp scripts/qt6-web-api.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable qt6-web-api
+sudo systemctl start qt6-web-api
+```
 
 ## Performance Considerations
 
