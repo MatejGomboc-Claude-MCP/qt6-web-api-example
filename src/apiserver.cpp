@@ -1,5 +1,6 @@
 #include "apiserver.h"
 #include "problemdetail.h"
+#include "configmanager.h"
 #include <QJsonObject>
 #include <QJsonDocument>
 #include <QString>
@@ -20,7 +21,8 @@ ApiServer::ApiServer(QObject *parent)
       m_corsAllowedOrigins({"*"}),
       m_rateLimit(100), // Default: 100 requests per minute
       m_problemBaseUrl("https://problemdetails.example.com/problems"),
-      m_tlsEnabled(false)
+      m_tlsEnabled(false),
+      m_config(new ConfigManager())
 {
     setupRoutes();
     setupErrorHandler();
@@ -34,6 +36,7 @@ ApiServer::ApiServer(QObject *parent)
 
 ApiServer::~ApiServer()
 {
+    delete m_config;
 }
 
 bool ApiServer::listen(int port, const QHostAddress &address)
@@ -89,6 +92,14 @@ void ApiServer::setProblemBaseUrl(const QString &baseUrl)
     ProblemDetail::setDefaultBaseUrl(baseUrl);
 }
 
+void ApiServer::setConfig(ConfigManager *config)
+{
+    if (m_config) {
+        delete m_config;
+    }
+    m_config = config;
+}
+
 void ApiServer::setupRoutes()
 {
     // Wrap all routes with rate limiting and exception handling
@@ -101,19 +112,12 @@ void ApiServer::setupRoutes()
             
             // Add CORS headers if enabled
             QHttpServerResponse response("Hello World");
-            if (m_corsEnabled) {
-                for (const auto &origin : m_corsAllowedOrigins) {
-                    response.setHeader("Access-Control-Allow-Origin", origin.toUtf8());
-                }
-                response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            }
             
-            // Add security headers
-            response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("X-Frame-Options", "DENY");
-            response.setHeader("Content-Security-Policy", "default-src 'self'");
-            response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            // Add CORS headers if enabled
+            addCorsHeaders(response);
+            
+            // Add OWASP recommended security headers
+            addSecurityHeaders(response);
             
             return response;
         } catch (const std::exception &e) {
@@ -133,19 +137,10 @@ void ApiServer::setupRoutes()
             QHttpServerResponse response(jsonObject);
             
             // Add CORS headers if enabled
-            if (m_corsEnabled) {
-                for (const auto &origin : m_corsAllowedOrigins) {
-                    response.setHeader("Access-Control-Allow-Origin", origin.toUtf8());
-                }
-                response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-                response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            }
+            addCorsHeaders(response);
             
-            // Add security headers
-            response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("X-Frame-Options", "DENY");
-            response.setHeader("Content-Security-Policy", "default-src 'self'");
-            response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+            // Add OWASP recommended security headers
+            addSecurityHeaders(response);
             
             return response;
         } catch (const std::exception &e) {
@@ -197,20 +192,11 @@ void ApiServer::setupRoutes()
     m_server->route("*", QHttpServerRequest::Method::Options, [this](const QHttpServerRequest &request) {
         QHttpServerResponse response("");
         
-        if (m_corsEnabled) {
-            for (const auto &origin : m_corsAllowedOrigins) {
-                response.setHeader("Access-Control-Allow-Origin", origin.toUtf8());
-            }
-            response.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-            response.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
-        }
+        // Add CORS headers if enabled
+        addCorsHeaders(response);
         
-        // Add security headers
-        response.setHeader("X-Content-Type-Options", "nosniff");
-        response.setHeader("X-Frame-Options", "DENY");
-        response.setHeader("Content-Security-Policy", "default-src 'self'");
-        response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+        // Add OWASP recommended security headers
+        addSecurityHeaders(response);
         
         return response;
     });
@@ -231,7 +217,15 @@ void ApiServer::setupErrorHandler()
             problem.setDetail(QString("The requested resource '%1' was not found").arg(request.url().path()));
             problem.setInstance(request.url().path());
             
-            return problem.toJsonResponse();
+            auto response = problem.toJsonResponse();
+            
+            // Add CORS headers if enabled
+            addCorsHeaders(response);
+            
+            // Add OWASP recommended security headers
+            addSecurityHeaders(response);
+            
+            return response;
         } catch (const std::exception &e) {
             return handleException(e, request);
         }
@@ -242,17 +236,94 @@ void ApiServer::setupSecurityHeaders()
 {
     // Set security headers for all responses
     m_server->afterRequest([this](QHttpServerResponse &&response) {
-        response.setHeader("X-Content-Type-Options", "nosniff");
-        response.setHeader("X-Frame-Options", "DENY");
-        response.setHeader("Content-Security-Policy", "default-src 'self'");
-        
-        // Only add HSTS header if TLS is enabled
-        if (m_tlsEnabled) {
-            response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-        }
+        // Add OWASP recommended security headers
+        addSecurityHeaders(response);
         
         return std::move(response);
     });
+}
+
+void ApiServer::addSecurityHeaders(QHttpServerResponse &response)
+{
+    if (!m_config) {
+        return;
+    }
+    
+    // Add basic security headers
+    response.setHeader("X-Content-Type-Options", m_config->getContentTypeOptions().toUtf8());
+    response.setHeader("X-Frame-Options", m_config->getFrameOptions().toUtf8());
+    response.setHeader("Content-Security-Policy", m_config->getContentSecurityPolicy().toUtf8());
+    
+    // Add additional OWASP recommended headers
+    if (!m_config->getPermissionsPolicy().isEmpty()) {
+        response.setHeader("Permissions-Policy", m_config->getPermissionsPolicy().toUtf8());
+    }
+    
+    if (!m_config->getReferrerPolicy().isEmpty()) {
+        response.setHeader("Referrer-Policy", m_config->getReferrerPolicy().toUtf8());
+    }
+    
+    if (!m_config->getXssProtection().isEmpty()) {
+        response.setHeader("X-XSS-Protection", m_config->getXssProtection().toUtf8());
+    }
+    
+    if (!m_config->getCacheControl().isEmpty()) {
+        response.setHeader("Cache-Control", m_config->getCacheControl().toUtf8());
+    }
+    
+    if (!m_config->getClearSiteData().isEmpty()) {
+        response.setHeader("Clear-Site-Data", m_config->getClearSiteData().toUtf8());
+    }
+    
+    if (!m_config->getCrossOriginEmbedderPolicy().isEmpty()) {
+        response.setHeader("Cross-Origin-Embedder-Policy", m_config->getCrossOriginEmbedderPolicy().toUtf8());
+    }
+    
+    if (!m_config->getCrossOriginOpenerPolicy().isEmpty()) {
+        response.setHeader("Cross-Origin-Opener-Policy", m_config->getCrossOriginOpenerPolicy().toUtf8());
+    }
+    
+    if (!m_config->getCrossOriginResourcePolicy().isEmpty()) {
+        response.setHeader("Cross-Origin-Resource-Policy", m_config->getCrossOriginResourcePolicy().toUtf8());
+    }
+    
+    // Only add HSTS header if TLS is enabled
+    if (m_tlsEnabled && m_config->getHstsMaxAge() > 0) {
+        QString hstsValue = QString("max-age=%1").arg(m_config->getHstsMaxAge());
+        if (m_config->getHstsIncludeSubdomains()) {
+            hstsValue += "; includeSubDomains";
+        }
+        response.setHeader("Strict-Transport-Security", hstsValue.toUtf8());
+    }
+}
+
+void ApiServer::addCorsHeaders(QHttpServerResponse &response)
+{
+    if (m_corsEnabled) {
+        for (const auto &origin : m_corsAllowedOrigins) {
+            response.setHeader("Access-Control-Allow-Origin", origin.toUtf8());
+        }
+        
+        QString allowedMethods;
+        for (const auto &method : m_config->getAllowedMethods()) {
+            if (!allowedMethods.isEmpty()) {
+                allowedMethods += ", ";
+            }
+            allowedMethods += method;
+        }
+        
+        QString allowedHeaders;
+        for (const auto &header : m_config->getAllowedHeaders()) {
+            if (!allowedHeaders.isEmpty()) {
+                allowedHeaders += ", ";
+            }
+            allowedHeaders += header;
+        }
+        
+        response.setHeader("Access-Control-Allow-Methods", allowedMethods.toUtf8());
+        response.setHeader("Access-Control-Allow-Headers", allowedHeaders.toUtf8());
+        response.setHeader("Access-Control-Max-Age", QString::number(m_config->getCorsMaxAge()).toUtf8());
+    }
 }
 
 QHttpServerResponse ApiServer::handleException(const std::exception &e, const QHttpServerRequest &request)
@@ -262,11 +333,29 @@ QHttpServerResponse ApiServer::handleException(const std::exception &e, const QH
     problem.setDetail(QString("An unexpected error occurred: %1").arg(e.what()));
     problem.setInstance(request.url().path());
     
-    return problem.toJsonResponse();
+    auto response = problem.toJsonResponse();
+    
+    // Add CORS headers if enabled
+    addCorsHeaders(response);
+    
+    // Add OWASP recommended security headers
+    addSecurityHeaders(response);
+    
+    return response;
 }
 
 bool ApiServer::isRateLimited(const QString &clientIp)
 {
+    // Skip rate limiting if disabled
+    if (m_rateLimit <= 0) {
+        return false;
+    }
+    
+    // Check whitelist
+    if (m_config && m_config->getRateLimitIpWhitelist().contains(clientIp)) {
+        return false;
+    }
+    
     QMutexLocker locker(&m_rateLimitMutex);
     
     // Increment request count for this client
@@ -286,6 +375,12 @@ QHttpServerResponse ApiServer::createRateLimitedResponse(const QString &clientIp
     
     auto response = problem.toJsonResponse();
     response.setHeader("Retry-After", "60");
+    
+    // Add CORS headers if enabled
+    addCorsHeaders(response);
+    
+    // Add OWASP recommended security headers
+    addSecurityHeaders(response);
     
     return response;
 }
