@@ -2,11 +2,14 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 
+// Initialize static member with default value
+QString ProblemDetail::s_defaultBaseUrl = "https://problemdetails.example.com/problems";
+
 ProblemDetail::ProblemDetail(int statusCode)
     : m_statusCode(statusCode)
 {
-    // Set default type URI based on status code
-    QString typeUri = QString("https://httpstatuses.com/%1").arg(statusCode);
+    // Set default type URI based on status code and configurable base URL
+    QString typeUri = QString("%1/%2").arg(s_defaultBaseUrl).arg(statusCode);
     m_type = QUrl(typeUri);
     
     // Set default title based on status code
@@ -31,6 +34,9 @@ ProblemDetail::ProblemDetail(int statusCode)
         break;
     case 422:
         m_title = "Unprocessable Entity";
+        break;
+    case 429:
+        m_title = "Too Many Requests";
         break;
     case 500:
         m_title = "Internal Server Error";
@@ -96,4 +102,14 @@ QHttpServerResponse ProblemDetail::toJsonResponse() const
     response.setHeader("Content-Type", "application/problem+json");
     
     return response;
+}
+
+void ProblemDetail::setDefaultBaseUrl(const QString &baseUrl)
+{
+    s_defaultBaseUrl = baseUrl;
+}
+
+QString ProblemDetail::defaultBaseUrl()
+{
+    return s_defaultBaseUrl;
 }
