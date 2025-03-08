@@ -62,8 +62,16 @@ public:
     QString getContentTypeOptions() const;
     QString getFrameOptions() const;
     QString getContentSecurityPolicy() const;
+    QString getPermissionsPolicy() const;
+    QString getReferrerPolicy() const;
+    QString getXssProtection() const;
     int getHstsMaxAge() const;
     bool getHstsIncludeSubdomains() const;
+    QString getCacheControl() const;
+    QString getClearSiteData() const;
+    QString getCrossOriginEmbedderPolicy() const;
+    QString getCrossOriginOpenerPolicy() const;
+    QString getCrossOriginResourcePolicy() const;
     
     // Problem details
     QString getProblemBaseUrl() const;
