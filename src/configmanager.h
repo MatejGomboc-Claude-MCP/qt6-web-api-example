@@ -40,6 +40,10 @@ public:
     QHostAddress getAddress() const;
     int getWorkers() const;
     
+    // HTTP to HTTPS redirect settings
+    bool isHttpRedirectEnabled() const;
+    int getHttpPort() const;
+    
     // Rate limiting settings
     bool isRateLimitEnabled() const;
     int getMaxRequestsPerMinute() const;
