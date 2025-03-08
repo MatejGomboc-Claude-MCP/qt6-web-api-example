@@ -66,6 +66,20 @@ public:
      * @return A QHttpServerResponse representing the problem detail
      */
     QHttpServerResponse toJsonResponse() const;
+    
+    /**
+     * @brief Set the default base URL for problem type URIs
+     * 
+     * @param baseUrl The base URL to use for problem type URIs
+     */
+    static void setDefaultBaseUrl(const QString &baseUrl);
+    
+    /**
+     * @brief Get the current default base URL for problem type URIs
+     * 
+     * @return The current default base URL
+     */
+    static QString defaultBaseUrl();
 
 private:
     int m_statusCode;
@@ -74,6 +88,8 @@ private:
     QString m_detail;
     QString m_instance;
     QMap<QString, QJsonValue> m_extensions;
+    
+    static QString s_defaultBaseUrl;
 };
 
 #endif // PROBLEMDETAIL_H
