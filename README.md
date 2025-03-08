@@ -10,6 +10,7 @@ A simple Qt6 C++ web API that returns 'Hello World' and supports RFC 7807 Proble
 - JSON configuration file for easy deployment and customization
 - Comprehensive security features:
   - OWASP recommended security headers
+  - Automatic HTTP to HTTPS redirection
   - Rate limiting to prevent abuse
   - TLS/HTTPS support
   - CORS support for web clients
@@ -52,7 +53,11 @@ The default `config.json` file is organized into logical sections:
   "server": {
     "port": 8080,
     "address": "localhost",
-    "workers": 4
+    "workers": 4,
+    "httpRedirect": {
+      "enabled": false,
+      "httpPort": 80
+    }
   },
   "security": {
     "rateLimit": {
@@ -127,6 +132,9 @@ Command-line arguments can override configuration file settings:
 
 # Enable TLS/HTTPS
 ./qt6-web-api-example --tls true --cert /path/to/cert.pem --key /path/to/key.pem
+
+# Enable HTTP to HTTPS redirect
+./qt6-web-api-example --tls true --cert /path/to/cert.pem --key /path/to/key.pem --http-redirect true --http-port 80
 ```
 
 ## Running the Server
@@ -165,6 +173,25 @@ Problem detail responses include:
 All error responses use the `application/problem+json` content type as specified in the RFC.
 
 ## Security Features
+
+### HTTP to HTTPS Redirection
+
+When TLS is enabled, the API can automatically redirect all HTTP traffic to HTTPS, ensuring secure communications. This feature can be configured in the JSON configuration file:
+
+```json
+"httpRedirect": {
+  "enabled": true,
+  "httpPort": 80
+}
+```
+
+Or via command line:
+
+```bash
+./qt6-web-api-example --tls true --http-redirect true --http-port 80
+```
+
+The redirect uses a proper 301 Moved Permanently status code to ensure browsers and clients update their bookmarks and caches.
 
 ### OWASP Recommended Security Headers
 
