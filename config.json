@@ -30,8 +30,16 @@
       "contentTypeOptions": "nosniff",
       "frameOptions": "DENY",
       "contentSecurityPolicy": "default-src 'self'",
+      "permissionsPolicy": "geolocation=(), camera=(), microphone=()",
+      "referrerPolicy": "strict-origin-when-cross-origin",
+      "xssProtection": "1; mode=block",
       "hstsMaxAge": 31536000,
-      "hstsIncludeSubdomains": true
+      "hstsIncludeSubdomains": true,
+      "cacheControl": "no-store, max-age=0",
+      "clearSiteData": "",
+      "crossOriginEmbedderPolicy": "require-corp",
+      "crossOriginOpenerPolicy": "same-origin",
+      "crossOriginResourcePolicy": "same-origin"
     }
   },
   "problemDetails": {
