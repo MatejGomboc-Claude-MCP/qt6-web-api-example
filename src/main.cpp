@@ -12,34 +12,38 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationVersion("1.0.0");
 
     // Create and initialize the configuration manager
-    ConfigManager config;
+    ConfigManager *config = new ConfigManager();
     
     // Process command line arguments
-    if (!config.processCommandLine()) {
+    if (!config->processCommandLine()) {
         std::cerr << "Error processing command line arguments" << std::endl;
+        delete config;
         return 1;
     }
     
     // Get configuration values
-    int port = config.getPort();
-    QHostAddress host = config.getAddress();
-    bool enableTls = config.isTlsEnabled();
-    QString certPath = config.getCertificatePath();
-    QString keyPath = config.getKeyPath();
-    QString passphrase = config.getPassphrase();
-    bool enableCors = config.isCorsEnabled();
-    QStringList corsOrigins = config.getAllowedOrigins();
-    int rateLimit = config.getMaxRequestsPerMinute();
-    QString problemBaseUrl = config.getProblemBaseUrl();
+    int port = config->getPort();
+    QHostAddress host = config->getAddress();
+    bool enableTls = config->isTlsEnabled();
+    QString certPath = config->getCertificatePath();
+    QString keyPath = config->getKeyPath();
+    QString passphrase = config->getPassphrase();
+    bool enableCors = config->isCorsEnabled();
+    QStringList corsOrigins = config->getAllowedOrigins();
+    int rateLimit = config->getMaxRequestsPerMinute();
+    QString problemBaseUrl = config->getProblemBaseUrl();
 
     // Create and configure the API server
     ApiServer server;
+    
+    // Set the configuration manager
+    server.setConfig(config);
     
     // Configure problem detail base URL
     server.setProblemBaseUrl(problemBaseUrl);
     
     // Configure rate limiting if enabled
-    if (config.isRateLimitEnabled()) {
+    if (config->isRateLimitEnabled()) {
         server.setRateLimit(rateLimit);
     } else {
         server.setRateLimit(0); // Disable rate limiting
@@ -89,7 +93,7 @@ int main(int argc, char *argv[])
         std::cout << std::endl;
     }
     
-    if (config.isRateLimitEnabled()) {
+    if (config->isRateLimitEnabled()) {
         std::cout << "Rate limiting: " << rateLimit << " requests per minute per client" << std::endl;
     } else {
         std::cout << "Rate limiting: disabled" << std::endl;
@@ -98,6 +102,8 @@ int main(int argc, char *argv[])
     if (!problemBaseUrl.isEmpty()) {
         std::cout << "Problem detail base URL: " << problemBaseUrl.toStdString() << std::endl;
     }
+    
+    std::cout << "OWASP recommended security headers: enabled" << std::endl;
 
     return app.exec();
 }
