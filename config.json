@@ -1,0 +1,48 @@
+{
+  "server": {
+    "port": 8080,
+    "address": "localhost",
+    "workers": 4
+  },
+  "security": {
+    "rateLimit": {
+      "enabled": true,
+      "maxRequestsPerMinute": 100,
+      "ipWhitelist": [
+        "127.0.0.1",
+        "::1"
+      ]
+    },
+    "cors": {
+      "enabled": false,
+      "allowedOrigins": ["*"],
+      "allowedMethods": ["GET", "POST", "OPTIONS"],
+      "allowedHeaders": ["Content-Type", "Authorization"],
+      "maxAge": 86400
+    },
+    "tls": {
+      "enabled": false,
+      "certificatePath": "",
+      "keyPath": "",
+      "passphrase": ""
+    },
+    "headers": {
+      "contentTypeOptions": "nosniff",
+      "frameOptions": "DENY",
+      "contentSecurityPolicy": "default-src 'self'",
+      "hstsMaxAge": 31536000,
+      "hstsIncludeSubdomains": true
+    }
+  },
+  "problemDetails": {
+    "baseUrl": "https://problemdetails.example.com/problems",
+    "includeDebugInfo": false,
+    "contactEmail": ""
+  },
+  "logging": {
+    "level": "info",
+    "file": "",
+    "console": true,
+    "includeTimestamp": true
+  }
+}
