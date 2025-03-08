@@ -3,6 +3,7 @@
 #include <QHostAddress>
 #include <iostream>
 #include "apiserver.h"
+#include "configmanager.h"
 
 int main(int argc, char *argv[])
 {
@@ -10,83 +11,26 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName("Qt6 Web API Example");
     QCoreApplication::setApplicationVersion("1.0.0");
 
-    QCommandLineParser parser;
-    parser.setApplicationDescription("A simple Qt6 C++ web API that returns 'Hello World' with RFC 7807 error handling");
-    parser.addHelpOption();
-    parser.addVersionOption();
-
-    // Port option
-    QCommandLineOption portOption(QStringList() << "p" << "port",
-                                  "Port to listen on (default: 8080)",
-                                  "port", "8080");
-    parser.addOption(portOption);
+    // Create and initialize the configuration manager
+    ConfigManager config;
     
-    // Host address option
-    QCommandLineOption hostOption(QStringList() << "a" << "address",
-                                 "Address to bind to (default: localhost). Use '0.0.0.0' for all interfaces.",
-                                 "address", "localhost");
-    parser.addOption(hostOption);
+    // Process command line arguments
+    if (!config.processCommandLine()) {
+        std::cerr << "Error processing command line arguments" << std::endl;
+        return 1;
+    }
     
-    // TLS options
-    QCommandLineOption tlsOption(QStringList() << "tls",
-                                "Enable TLS/HTTPS");
-    parser.addOption(tlsOption);
-    
-    QCommandLineOption certOption(QStringList() << "cert",
-                                 "Path to TLS certificate file (PEM format)",
-                                 "cert");
-    parser.addOption(certOption);
-    
-    QCommandLineOption keyOption(QStringList() << "key",
-                                "Path to TLS private key file (PEM format)",
-                                "key");
-    parser.addOption(keyOption);
-    
-    QCommandLineOption passphraseOption(QStringList() << "passphrase",
-                                      "Passphrase for TLS private key (if encrypted)",
-                                      "passphrase", "");
-    parser.addOption(passphraseOption);
-    
-    // CORS options
-    QCommandLineOption corsOption(QStringList() << "cors",
-                                 "Enable CORS support");
-    parser.addOption(corsOption);
-    
-    QCommandLineOption corsOriginsOption(QStringList() << "cors-origins",
-                                       "Comma-separated list of allowed CORS origins (default: *)",
-                                       "origins", "*");
-    parser.addOption(corsOriginsOption);
-    
-    // Rate limiting option
-    QCommandLineOption rateLimitOption(QStringList() << "rate-limit",
-                                     "Maximum requests per minute per client IP (default: 100, 0 to disable)",
-                                     "limit", "100");
-    parser.addOption(rateLimitOption);
-    
-    // Problem detail base URL option
-    QCommandLineOption problemBaseUrlOption(QStringList() << "problem-base-url",
-                                          "Base URL for problem detail type URIs",
-                                          "url", "https://problemdetails.example.com/problems");
-    parser.addOption(problemBaseUrlOption);
-
-    parser.process(app);
-
-    int port = parser.value(portOption).toInt();
-    QString hostStr = parser.value(hostOption);
-    QHostAddress host = (hostStr == "localhost") ? QHostAddress::LocalHost :
-                        (hostStr == "0.0.0.0") ? QHostAddress::Any : 
-                        QHostAddress(hostStr);
-    
-    bool enableTls = parser.isSet(tlsOption);
-    QString certPath = parser.value(certOption);
-    QString keyPath = parser.value(keyOption);
-    QString passphrase = parser.value(passphraseOption);
-    
-    bool enableCors = parser.isSet(corsOption);
-    QStringList corsOrigins = parser.value(corsOriginsOption).split(",", Qt::SkipEmptyParts);
-    
-    int rateLimit = parser.value(rateLimitOption).toInt();
-    QString problemBaseUrl = parser.value(problemBaseUrlOption);
+    // Get configuration values
+    int port = config.getPort();
+    QHostAddress host = config.getAddress();
+    bool enableTls = config.isTlsEnabled();
+    QString certPath = config.getCertificatePath();
+    QString keyPath = config.getKeyPath();
+    QString passphrase = config.getPassphrase();
+    bool enableCors = config.isCorsEnabled();
+    QStringList corsOrigins = config.getAllowedOrigins();
+    int rateLimit = config.getMaxRequestsPerMinute();
+    QString problemBaseUrl = config.getProblemBaseUrl();
 
     // Create and configure the API server
     ApiServer server;
@@ -94,8 +38,12 @@ int main(int argc, char *argv[])
     // Configure problem detail base URL
     server.setProblemBaseUrl(problemBaseUrl);
     
-    // Configure rate limiting
-    server.setRateLimit(rateLimit);
+    // Configure rate limiting if enabled
+    if (config.isRateLimitEnabled()) {
+        server.setRateLimit(rateLimit);
+    } else {
+        server.setRateLimit(0); // Disable rate limiting
+    }
     
     // Configure CORS if enabled
     if (enableCors) {
@@ -119,24 +67,36 @@ int main(int argc, char *argv[])
     
     // Start listening for connections
     if (!server.listen(port, host)) {
-        std::cerr << "Failed to start server on " << hostStr.toStdString() << ":" << port << std::endl;
+        std::cerr << "Failed to start server on " 
+                  << (host == QHostAddress::LocalHost ? "localhost" : host.toString().toStdString())
+                  << ":" << port << std::endl;
         return 1;
     }
 
+    // Display server information
     std::cout << "Server running at http" << (enableTls ? "s" : "") << "://" 
-              << (hostStr == "0.0.0.0" ? "localhost" : hostStr.toStdString()) << ":" << port << std::endl;
+              << (host == QHostAddress::Any ? "0.0.0.0" : 
+                 (host == QHostAddress::LocalHost ? "localhost" : host.toString().toStdString()))
+              << ":" << port << std::endl;
     std::cout << "Press Ctrl+C to quit" << std::endl;
 
     // Display configured security options
     if (enableCors) {
-        std::cout << "CORS enabled with origins: " 
-                  << (corsOrigins.isEmpty() ? "*" : parser.value(corsOriginsOption).toStdString()) << std::endl;
+        std::cout << "CORS enabled with origins: ";
+        for (const auto &origin : corsOrigins) {
+            std::cout << origin.toStdString() << " ";
+        }
+        std::cout << std::endl;
     }
     
-    if (rateLimit > 0) {
+    if (config.isRateLimitEnabled()) {
         std::cout << "Rate limiting: " << rateLimit << " requests per minute per client" << std::endl;
     } else {
         std::cout << "Rate limiting: disabled" << std::endl;
+    }
+    
+    if (!problemBaseUrl.isEmpty()) {
+        std::cout << "Problem detail base URL: " << problemBaseUrl.toStdString() << std::endl;
     }
 
     return app.exec();
