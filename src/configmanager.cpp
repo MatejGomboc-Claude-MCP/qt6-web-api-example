@@ -289,6 +289,21 @@ QString ConfigManager::getContentSecurityPolicy() const
     return getString({"security", "headers", "contentSecurityPolicy"}, "default-src 'self'");
 }
 
+QString ConfigManager::getPermissionsPolicy() const
+{
+    return getString({"security", "headers", "permissionsPolicy"}, "geolocation=(), camera=(), microphone=()");
+}
+
+QString ConfigManager::getReferrerPolicy() const
+{
+    return getString({"security", "headers", "referrerPolicy"}, "strict-origin-when-cross-origin");
+}
+
+QString ConfigManager::getXssProtection() const
+{
+    return getString({"security", "headers", "xssProtection"}, "1; mode=block");
+}
+
 int ConfigManager::getHstsMaxAge() const
 {
     return getInt({"security", "headers", "hstsMaxAge"}, 31536000);
@@ -297,6 +312,31 @@ int ConfigManager::getHstsMaxAge() const
 bool ConfigManager::getHstsIncludeSubdomains() const
 {
     return getBool({"security", "headers", "hstsIncludeSubdomains"}, true);
+}
+
+QString ConfigManager::getCacheControl() const
+{
+    return getString({"security", "headers", "cacheControl"}, "no-store, max-age=0");
+}
+
+QString ConfigManager::getClearSiteData() const
+{
+    return getString({"security", "headers", "clearSiteData"}, "");
+}
+
+QString ConfigManager::getCrossOriginEmbedderPolicy() const
+{
+    return getString({"security", "headers", "crossOriginEmbedderPolicy"}, "require-corp");
+}
+
+QString ConfigManager::getCrossOriginOpenerPolicy() const
+{
+    return getString({"security", "headers", "crossOriginOpenerPolicy"}, "same-origin");
+}
+
+QString ConfigManager::getCrossOriginResourcePolicy() const
+{
+    return getString({"security", "headers", "crossOriginResourcePolicy"}, "same-origin");
 }
 
 QString ConfigManager::getProblemBaseUrl() const
@@ -376,8 +416,16 @@ void ConfigManager::setDefaults()
     headersObj["contentTypeOptions"] = "nosniff";
     headersObj["frameOptions"] = "DENY";
     headersObj["contentSecurityPolicy"] = "default-src 'self'";
+    headersObj["permissionsPolicy"] = "geolocation=(), camera=(), microphone=()";
+    headersObj["referrerPolicy"] = "strict-origin-when-cross-origin";
+    headersObj["xssProtection"] = "1; mode=block";
     headersObj["hstsMaxAge"] = 31536000;
     headersObj["hstsIncludeSubdomains"] = true;
+    headersObj["cacheControl"] = "no-store, max-age=0";
+    headersObj["clearSiteData"] = "";
+    headersObj["crossOriginEmbedderPolicy"] = "require-corp";
+    headersObj["crossOriginOpenerPolicy"] = "same-origin";
+    headersObj["crossOriginResourcePolicy"] = "same-origin";
     
     QJsonObject securityObj;
     securityObj["rateLimit"] = rateLimitObj;
