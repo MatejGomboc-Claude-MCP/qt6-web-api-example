@@ -1,0 +1,28 @@
+[Unit]
+Description=Qt6 Web API Example
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/qt6-web-api-example
+ExecStart=/opt/qt6-web-api-example/qt6-web-api-example
+Restart=on-failure
+RestartSec=5
+# Give service access to certificates
+ReadWritePaths=/opt/qt6-web-api-example
+ReadOnlyPaths=/etc/letsencrypt/live
+# Security hardening
+CapabilityBoundingSet=
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=true
+NoNewPrivileges=true
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
