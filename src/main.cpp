@@ -32,6 +32,8 @@ int main(int argc, char *argv[])
     QStringList corsOrigins = config->getAllowedOrigins();
     int rateLimit = config->getMaxRequestsPerMinute();
     QString problemBaseUrl = config->getProblemBaseUrl();
+    bool enableHttpRedirect = config->isHttpRedirectEnabled();
+    int httpPort = config->getHttpPort();
 
     // Create and configure the API server
     ApiServer server;
@@ -67,6 +69,18 @@ int main(int argc, char *argv[])
         }
         
         std::cout << "TLS enabled with certificate: " << certPath.toStdString() << std::endl;
+        
+        // Set up HTTP to HTTPS redirect if enabled
+        if (enableHttpRedirect) {
+            if (!server.listenHttpRedirect(httpPort, port)) {
+                std::cerr << "Error: Failed to set up HTTP to HTTPS redirect on port " << httpPort << std::endl;
+                return 1;
+            }
+            
+            std::cout << "HTTP to HTTPS redirect enabled on port " << httpPort << std::endl;
+        }
+    } else if (enableHttpRedirect) {
+        std::cerr << "Warning: HTTP to HTTPS redirect requires TLS to be enabled. Ignoring redirect setting." << std::endl;
     }
     
     // Start listening for connections
