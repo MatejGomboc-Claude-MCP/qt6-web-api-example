@@ -2,7 +2,11 @@
   "server": {
     "port": 8080,
     "address": "localhost",
-    "workers": 4
+    "workers": 4,
+    "httpRedirect": {
+      "enabled": false,
+      "httpPort": 80
+    }
   },
   "security": {
     "rateLimit": {
