@@ -17,6 +17,8 @@ add_executable(${PROJECT_NAME}
     src/apiserver.cpp
     src/problemdetail.h
     src/problemdetail.cpp
+    src/configmanager.h
+    src/configmanager.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -25,5 +27,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::HttpServer
 )
 
+# Install the executable
 install(TARGETS ${PROJECT_NAME}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# Install the config.json file
+install(FILES config.json
+    DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/${PROJECT_NAME}
+)
