@@ -12,17 +12,20 @@
 #include <QNetworkInterface>
 #include <QDateTime>
 #include <QMutexLocker>
+#include <QHostInfo>
 #include <stdexcept>
 
 ApiServer::ApiServer(QObject *parent)
     : QObject(parent), 
       m_server(new QHttpServer(this)),
+      m_redirectServer(nullptr),
       m_corsEnabled(false),
       m_corsAllowedOrigins({"*"}),
       m_rateLimit(100), // Default: 100 requests per minute
       m_problemBaseUrl("https://problemdetails.example.com/problems"),
       m_tlsEnabled(false),
-      m_config(new ConfigManager())
+      m_config(new ConfigManager()),
+      m_httpsPort(0)
 {
     setupRoutes();
     setupErrorHandler();
@@ -37,11 +40,40 @@ ApiServer::ApiServer(QObject *parent)
 ApiServer::~ApiServer()
 {
     delete m_config;
+    if (m_redirectServer) {
+        delete m_redirectServer;
+    }
 }
 
 bool ApiServer::listen(int port, const QHostAddress &address)
 {
     const quint16 actualPort = m_server->listen(address, port);
+    
+    if (actualPort != 0) {
+        m_httpsPort = port; // Store the HTTPS port for redirects
+    }
+    
+    return actualPort != 0;
+}
+
+bool ApiServer::listenHttpRedirect(int httpPort, int httpsPort)
+{
+    if (!m_tlsEnabled) {
+        // Only set up HTTP redirects if TLS is enabled
+        return false;
+    }
+    
+    if (m_redirectServer) {
+        delete m_redirectServer;
+    }
+    
+    m_redirectServer = new QHttpServer(this);
+    m_httpsPort = httpsPort;
+    
+    // Set up the redirect server to handle all routes
+    setupHttpsRedirect(httpPort, httpsPort);
+    
+    const quint16 actualPort = m_redirectServer->listen(QHostAddress::Any, httpPort);
     return actualPort != 0;
 }
 
@@ -241,6 +273,43 @@ void ApiServer::setupSecurityHeaders()
         
         return std::move(response);
     });
+}
+
+void ApiServer::setupHttpsRedirect(int httpPort, int httpsPort)
+{
+    if (!m_redirectServer) {
+        return;
+    }
+    
+    // Capture all HTTP requests and redirect to HTTPS
+    m_redirectServer->route("*", [this, httpsPort](const QHttpServerRequest &request) {
+        QUrl url = request.url();
+        QString host = getServerHostname();
+        
+        // Create the HTTPS URL from the HTTP request
+        url.setScheme("https");
+        url.setHost(host);
+        url.setPort(httpsPort);
+        
+        QHttpServerResponse response(QHttpServerResponder::StatusCode::MovedPermanently);
+        response.setHeader("Location", url.toString().toUtf8());
+        
+        // Add security headers
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Cache-Control", "no-store, max-age=0");
+        
+        return response;
+    });
+}
+
+QString ApiServer::getServerHostname() const
+{
+    // Try to get the local hostname, fallback to localhost
+    QString hostname = QHostInfo::localHostName();
+    if (hostname.isEmpty() || hostname == "localhost") {
+        return "localhost";
+    }
+    return hostname;
 }
 
 void ApiServer::addSecurityHeaders(QHttpServerResponse &response)
