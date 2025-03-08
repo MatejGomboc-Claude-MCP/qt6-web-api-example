@@ -12,6 +12,8 @@
 #include <QMap>
 #include <QMutex>
 
+class ConfigManager;
+
 class ApiServer : public QObject
 {
     Q_OBJECT
@@ -34,6 +36,9 @@ public:
     
     // Set problem detail base URL
     void setProblemBaseUrl(const QString &baseUrl);
+    
+    // Set configuration manager
+    void setConfig(ConfigManager *config);
 
 private:
     QHttpServer *m_server;
@@ -44,10 +49,13 @@ private:
     QMutex m_rateLimitMutex;
     QString m_problemBaseUrl;
     bool m_tlsEnabled;
+    ConfigManager *m_config;
     
     void setupRoutes();
     void setupErrorHandler();
     void setupSecurityHeaders();
+    void addSecurityHeaders(QHttpServerResponse &response);
+    void addCorsHeaders(QHttpServerResponse &response);
     QHttpServerResponse handleException(const std::exception &e, const QHttpServerRequest &request);
     bool isRateLimited(const QString &clientIp);
     QHttpServerResponse createRateLimitedResponse(const QString &clientIp);
